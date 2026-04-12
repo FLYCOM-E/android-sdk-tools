@@ -47,12 +47,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             git python3 python3-pip cmake ninja-build \
-            bison flex unzip zip wget
+            bison flex unzip zip wget protobuf-compiler
 
       - name: Install Python deps
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install requests
+
+      - name: Verify protoc
+        run: |
+          which protoc
+          protoc --version
 
       - name: Download Android NDK
         run: |
@@ -66,21 +71,13 @@ jobs:
         run: |
           python3 get_source.py --tags "${{ inputs.source_ref }}"
 
-      - name: Build host protoc
-        run: |
-          cd src/protobuf
-          mkdir -p build
-          cd build
-          cmake -GNinja -Dprotobuf_BUILD_TESTS=OFF ..
-          ninja -j"$(nproc)"
-
       - name: Build SDK tools
         run: |
           python3 build.py \
             --ndk="$NDK_HOME" \
             --abi="${{ inputs.abi }}" \
             --build="build/${{ inputs.abi }}" \
-            --protoc="$GITHUB_WORKSPACE/src/protobuf/build/protoc" \
+            --protoc="$(command -v protoc)" \
             --job="$(nproc)"
 
       - name: Upload build artifact
