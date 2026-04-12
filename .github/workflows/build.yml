@@ -6,13 +6,13 @@ on:
       source_ref:
         description: "Ref público do AOSP para compilar"
         required: true
-        default: "main"
+        default: "platform-tools-35.0.2"
         type: string
 
       release_name:
         description: "Nome exibido na release"
         required: true
-        default: "36.0.1"
+        default: "35.0.2"
         type: string
 
       ndk_version:
@@ -54,10 +54,20 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install requests
 
-      - name: Verify protoc
+      - name: Validate source ref
         run: |
-          which protoc
-          protoc --version
+          set -e
+          REF="${{ inputs.source_ref }}"
+          REPO="https://android.googlesource.com/platform/packages/modules/adb"
+
+          if git ls-remote --exit-code --heads "$REPO" "refs/heads/$REF" >/dev/null 2>&1; then
+            echo "Found branch: $REF"
+          elif git ls-remote --exit-code --tags "$REPO" "refs/tags/$REF" >/dev/null 2>&1; then
+            echo "Found tag: $REF"
+          else
+            echo "::error::Ref '$REF' does not exist in adb repository"
+            exit 1
+          fi
 
       - name: Download Android NDK
         run: |
