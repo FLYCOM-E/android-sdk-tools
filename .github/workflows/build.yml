@@ -1,0 +1,94 @@
+name: build-android-sdk-tools
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_tag:
+        description: "Versão/tag do SDK para compilar"
+        required: true
+        default: "platform-tools-35.0.2"
+        type: string
+
+      ndk_version:
+        description: "Versão do NDK"
+        required: false
+        default: "r26d"
+        type: string
+
+      abi:
+        description: "ABI de compilação"
+        required: false
+        default: "arm64-v8a"
+        type: choice
+        options:
+          - arm64-v8a
+          - armeabi-v7a
+          - x86_64
+
+permissions:
+  contents: write
+
+jobs:
+  build-sdk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git python3 python3-pip cmake ninja-build \
+            bison flex unzip zip wget
+
+      - name: Install Python deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install requests
+
+      - name: Download Android NDK
+        run: |
+          mkdir -p "$HOME/android"
+          cd "$HOME/android"
+          wget -q "https://dl.google.com/android/repository/android-ndk-${{ inputs.ndk_version }}-linux.zip"
+          unzip -q "android-ndk-${{ inputs.ndk_version }}-linux.zip"
+          echo "NDK_HOME=$HOME/android/android-ndk-${{ inputs.ndk_version }}" >> "$GITHUB_ENV"
+
+      - name: Fetch sources
+        run: |
+          python3 get_source.py --tags "${{ inputs.sdk_tag }}"
+
+      - name: Build host protoc
+        run: |
+          cd src/protobuf
+          mkdir -p build
+          cd build
+          cmake -GNinja -Dprotobuf_BUILD_TESTS=OFF ..
+          ninja -j"$(nproc)"
+
+      - name: Build SDK tools
+        run: |
+          python3 build.py \
+            --ndk="$NDK_HOME" \
+            --abi="${{ inputs.abi }}" \
+            --build="build/${{ inputs.abi }}" \
+            --protoc="$GITHUB_WORKSPACE/src/protobuf/build/protoc" \
+            --job="$(nproc)"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-sdk-tools-${{ inputs.sdk_tag }}-${{ inputs.abi }}
+          path: build/**/android-sdk-tools-*.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.sdk_tag }}
+          name: ${{ inputs.sdk_tag }}
+          files: build/**/android-sdk-tools-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
