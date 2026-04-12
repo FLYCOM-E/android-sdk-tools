@@ -3,10 +3,16 @@ name: build-android-sdk-tools
 on:
   workflow_dispatch:
     inputs:
-      sdk_tag:
-        description: "Versão/tag do SDK para compilar"
+      source_ref:
+        description: "Ref público do AOSP para compilar"
         required: true
-        default: "platform-tools-35.0.2"
+        default: "main"
+        type: string
+
+      release_name:
+        description: "Nome exibido na release"
+        required: true
+        default: "36.0.1"
         type: string
 
       ndk_version:
@@ -58,7 +64,7 @@ jobs:
 
       - name: Fetch sources
         run: |
-          python3 get_source.py --tags "${{ inputs.sdk_tag }}"
+          python3 get_source.py --tags "${{ inputs.source_ref }}"
 
       - name: Build host protoc
         run: |
@@ -80,14 +86,15 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-sdk-tools-${{ inputs.sdk_tag }}-${{ inputs.abi }}
+          name: android-sdk-tools-${{ inputs.release_name }}-${{ inputs.abi }}
           path: build/**/android-sdk-tools-*.zip
+          if-no-files-found: error
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.sdk_tag }}
-          name: ${{ inputs.sdk_tag }}
+          tag_name: sdk-${{ inputs.release_name }}-${{ github.run_number }}
+          name: ${{ inputs.release_name }}
           files: build/**/android-sdk-tools-*.zip
           generate_release_notes: true
         env:
