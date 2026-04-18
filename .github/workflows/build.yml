@@ -4,25 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: "Ref público do AOSP para compilar"
+        description: "AOSP TAG"
         required: true
-        default: "platform-tools-35.0.2"
+        default: "android16-release"
         type: string
 
       release_name:
         description: "Nome exibido na release"
         required: true
-        default: "35.0.2"
+        default: "36"
         type: string
 
       ndk_version:
-        description: "Versão do NDK"
+        description: "NDK Version"
         required: false
-        default: "r26d"
+        default: "r28b"
         type: string
 
       abi:
-        description: "ABI de compilação"
+        description: "ABI TARGET"
         required: false
         default: "arm64-v8a"
         type: choice
@@ -96,13 +96,3 @@ jobs:
           name: android-sdk-tools-${{ inputs.release_name }}-${{ inputs.abi }}
           path: build/**/android-sdk-tools-*.zip
           if-no-files-found: error
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: sdk-${{ inputs.release_name }}-${{ github.run_number }}
-          name: ${{ inputs.release_name }}
-          files: build/**/android-sdk-tools-*.zip
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
